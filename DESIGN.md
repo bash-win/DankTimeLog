@@ -185,5 +185,9 @@ to:
 
 ## Build and checks
 
-- `qmllint` and `qmlformat` clean on all QML.
+`./check.sh` runs all of these:
+
+- `qmlformat` clean on all QML, using the repo's `.qmlformat.ini` (4-space
+  indent, 250 columns, matching DMS).
+- `qmllint` clean on all QML and `.mjs` files.
 - `node --test 'tests/*.test.mjs'` passes.
