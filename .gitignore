@@ -1,0 +1,6 @@
+node_modules/
+
+# The registry review deletes these and rejects text addressed to AI tools.
+CLAUDE.md
+CLAUDE.local.md
+.claude/
