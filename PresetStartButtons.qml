@@ -14,7 +14,7 @@ Column {
     signal presetStartRequested(string presetId)
     signal presetAddRequested(string displayName)
 
-    readonly property int kNewPresetNameFieldWidthPixels: 150
+    readonly property real kNewPresetNameFieldWidthFraction: 0.4
     readonly property int kMaximumVisibleButtonRowCount: 3
     // Half of the next row stays visible so the cut shows there are more presets to scroll to.
     readonly property real kPeekingRowFraction: 0.5
@@ -90,7 +90,7 @@ Column {
             id: newPresetNameField
 
             visible: root.isAddingPreset
-            width: root.kNewPresetNameFieldWidthPixels
+            width: root.width * root.kNewPresetNameFieldWidthFraction
             placeholderText: I18n.trFor("dankTimeLog", "New preset")
             onAccepted: root.addTypedPreset()
             Keys.onEscapePressed: event => {
