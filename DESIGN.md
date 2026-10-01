@@ -31,6 +31,8 @@ Not in v1:
 - Presets with history are archived rather than deleted, so past averages stay
   correct. Archived presets are hidden from the start buttons but still appear
   in the chart for ranges that contain their sessions.
+- Until the user saves presets in settings, the daemon uses two defaults,
+  Work and Study. An empty `colorHex` means the theme accent.
 
 **Session**: `{ presetId, startEpochMilliseconds, endEpochMilliseconds }`
 
@@ -113,16 +115,25 @@ TimeLogDaemon.qml     single owner of presets, sessions, and the running timer;
                       persistence, heartbeat, IPC handler
 TimeLogWidget.qml     bar pill and popout; reads daemon state, sends actions to it
 TimeLogSettings.qml   preset add/edit/archive
+SessionLog.mjs        start, switch, stop, and gap-close as functions from
+                      sessions to sessions
 SessionMath.mjs       day and week boundaries, per-preset totals, averages,
                       gap decision
+PresetCatalog.mjs     preset lookup by id and by name
 DurationFormat.mjs    "1h 05m" style formatting
 tests/                node --test suites for the .mjs files
 ```
 
 The daemon is the only owner because DMS creates a separate widget instance per
 bar per monitor; state held in widgets would diverge across screens. Widgets
-read state the daemon publishes through `PluginService` global variables and
-call into the daemon for every mutation.
+hold a non-owning reference to the daemon through
+`PluginService.pluginDaemonInstances[pluginId]`, bind to its `presets`,
+`sessions`, and `runningSession`, and call its `startPreset` and
+`stopRunningSession` for every mutation.
+
+The daemon itself holds no session logic beyond calling `SessionLog` and
+saving the result, so start, switch, stop, and the machine-off close are all
+covered by the Node tests.
 
 The `.mjs` files are ECMAScript modules with no QML or Qt APIs. QML imports
 them with `import "SessionMath.mjs" as SessionMath` and Node imports them
@@ -134,14 +145,15 @@ The tests pin `TZ` to `America/New_York` so the DST cases run against real
 
 ## IPC
 
-Target `timelog`, for `dms ipc call timelog <command>`:
+Target `dankTimeLog`, matching the plugin id so it cannot collide with another
+plugin's handler, for `dms ipc call dankTimeLog <command>`:
 
 | Command | Effect |
 |---|---|
 | `start <presetName>` | Start or switch to the preset (case-insensitive name match) |
 | `stop` | Stop the running session |
 | `toggle <presetName>` | Stop if that preset is running, otherwise start it |
-| `status` | Running preset name and elapsed seconds, or empty |
+| `status` | Running preset name and elapsed seconds, tab-separated, or empty |
 
 ## Storage
 
