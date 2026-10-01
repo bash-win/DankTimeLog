@@ -5,11 +5,20 @@
     "version": "0.1.0",
     "author": "bash-win",
     "type": "composite",
-    "capabilities": ["daemon", "ipc"],
+    "capabilities": [
+        "dankbar-widget",
+        "daemon",
+        "ipc"
+    ],
     "icon": "timer",
     "components": {
-        "daemon": "./TimeLogDaemon.qml"
+        "daemon": "./TimeLogDaemon.qml",
+        "widget": "./TimeLogWidget.qml"
     },
+    "settings": "./TimeLogSettings.qml",
     "requires_dms": ">=1.6.2",
-    "permissions": ["settings_read"]
+    "permissions": [
+        "settings_read",
+        "settings_write"
+    ]
 }

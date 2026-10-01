@@ -13,7 +13,13 @@ export function splitDurationIntoClockParts(durationMilliseconds) {
     };
 }
 
-function padToTwoDigits(clockPart) {
+export function millisecondsUntilNextWholeMinute(durationMilliseconds) {
+    const millisecondsPerMinute = kSecondsPerMinute * kMillisecondsPerSecond;
+    const millisecondsIntoCurrentMinute = ((durationMilliseconds % millisecondsPerMinute) + millisecondsPerMinute) % millisecondsPerMinute;
+    return millisecondsPerMinute - millisecondsIntoCurrentMinute;
+}
+
+export function padToTwoDigits(clockPart) {
     return String(clockPart).padStart(2, "0");
 }
 

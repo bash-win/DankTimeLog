@@ -36,3 +36,8 @@ export function closeRunningSessionAfterMachineOffGap(sessions, lastHeartbeatEpo
         return sessions;
     return closeRunningSessionAt(sessions, lastHeartbeatEpochMilliseconds);
 }
+
+export function removePresetSessions(sessions, presetId) {
+    const remainingSessions = sessions.filter(session => session.presetId !== presetId);
+    return remainingSessions.length === sessions.length ? sessions : remainingSessions;
+}

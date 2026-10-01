@@ -48,6 +48,24 @@ PluginComponent {
         return true;
     }
 
+    function addPreset(displayName) {
+        const updatedPresets = PresetCatalog.addPreset(presets, displayName);
+        if (updatedPresets === presets)
+            return false;
+        pluginService.savePluginData(pluginId, "presets", updatedPresets);
+        return true;
+    }
+
+    // Deletes the preset's history too; without it the sessions would show in the chart under the bare id.
+    function deleteArchivedPreset(presetId) {
+        const updatedPresets = PresetCatalog.removeArchivedPreset(presets, presetId);
+        if (updatedPresets === presets)
+            return false;
+        commitSessions(SessionLog.removePresetSessions(sessions, presetId));
+        pluginService.savePluginData(pluginId, "presets", updatedPresets);
+        return true;
+    }
+
     function stopRunningSession() {
         commitSessions(SessionLog.closeRunningSessionAt(sessions, Date.now()));
     }

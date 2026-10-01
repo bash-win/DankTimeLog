@@ -10,10 +10,11 @@ Target: DMS 1.6.2, Quickshell 0.3.1.
 
 In v1:
 
-- Presets: add, edit, archive.
+- Presets: add, edit, archive, and delete archived ones in settings; quick add
+  by name from the popout, below the start buttons.
 - Start a preset, switch to another, stop.
 - Bar pill showing the running preset and its elapsed time.
-- Popout with start/switch/stop controls, today's totals, and the averages chart.
+- Popout with start/switch/stop controls and the averages chart.
 - IPC commands so keybindings can drive the timer.
 - The timer stops when the machine is off or suspended.
 
@@ -31,6 +32,10 @@ Not in v1:
 - Presets with history are archived rather than deleted, so past averages stay
   correct. Archived presets are hidden from the start buttons but still appear
   in the chart for ranges that contain their sessions.
+- Deleting is only offered for archived presets, so it never touches the
+  running timer. It removes the preset's sessions too: kept without a preset,
+  they would show in the chart under the bare id. Settings asks first and shows
+  the total time that will be removed.
 - Until the user saves presets in settings, the daemon uses two defaults,
   Work and Study. An empty `colorHex` means the theme accent.
 
@@ -84,8 +89,14 @@ without a shell.
 
 ## Averages
 
-Both views show average time per day for each preset, as horizontal bars, with
-the combined total underneath. A toggle in the popout switches between them.
+One chart shows average time per day for each preset, as horizontal bars scaled
+to the longest preset, with the combined total underneath. It shows up to
+eight rows and scrolls beyond that. A toggle in the
+popout switches between three ranges, and the chosen range is saved in plugin
+settings.
+
+**Today**: the one-day "last N days" range. An average over one day is that
+day's total, so today's totals need no separate list.
 
 **This week**: Monday 00:00 local time through now.
 
@@ -113,13 +124,23 @@ DMS composite plugin, id `dankTimeLog`.
 plugin.json
 TimeLogDaemon.qml     single owner of presets, sessions, and the running timer;
                       persistence, heartbeat, IPC handler
-TimeLogWidget.qml     bar pill and popout; reads daemon state, sends actions to it
+TimeLogWidget.qml     bar pills; saves the chosen chart range and N
+TimeLogPopout.qml     popout layout and its refresh timers
+RunningSessionCard.qml  running preset, elapsed time, Stop
+PresetStartButtons.qml  one button per active preset, and quick add
+PresetStartButton.qml   one preset's button, eliding long names
+AveragesChart.qml     range toggle, N picker, rows, total, range description
+AverageBarRow.qml     one preset's bar
 TimeLogSettings.qml   preset add/edit/archive
-SessionLog.mjs        start, switch, stop, and gap-close as functions from
-                      sessions to sessions
+PresetEditorRow.qml   one active preset's color, icon, name, and Archive
+ArchivedPresetRow.qml   one archived preset's Restore, and Delete with confirmation
+AveragesChartModel.mjs  chart range to averages, averages to chart rows
+SessionLog.mjs        start, switch, stop, gap-close, and removing a preset's
+                      sessions as functions from sessions to sessions
 SessionMath.mjs       day and week boundaries, per-preset totals, averages,
                       gap decision
-PresetCatalog.mjs     preset lookup by id and by name
+PresetCatalog.mjs     preset lookup by id and by name; add, rename, recolor,
+                      archive, delete as functions from presets to presets
 DurationFormat.mjs    "1h 05m" style formatting
 tests/                node --test suites for the .mjs files
 ```
@@ -187,7 +208,9 @@ to:
 
 - The bar pill shows `h:mm` and updates once a minute, aligned to the minute
   boundary of the session's elapsed time.
-- The popout shows seconds and ticks every second, only while it is open.
+- The popout's running time ticks every second, only while it is open and a
+  timer runs. The chart recomputes once a minute while open, and immediately
+  when sessions change.
 - The heartbeat runs every 30 s, only while a session is open.
 
 ## Conventions

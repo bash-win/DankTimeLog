@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { formatClockHoursMinutes, formatClockHoursMinutesSeconds, formatHoursMinutesWithTemplates, splitDurationIntoClockParts } from "../DurationFormat.mjs";
+import { formatClockHoursMinutes, formatClockHoursMinutesSeconds, formatHoursMinutesWithTemplates, millisecondsUntilNextWholeMinute, splitDurationIntoClockParts } from "../DurationFormat.mjs";
 
 const kMillisecondsPerSecond = 1000;
 const kMillisecondsPerMinute = 60 * kMillisecondsPerSecond;
@@ -63,5 +63,19 @@ describe("formatHoursMinutesWithTemplates", () => {
 
     it("follows a translated template's word order", () => {
         assert.equal(formatHoursMinutesWithTemplates(3 * kMillisecondsPerHour, "%2 min, %1 h", kMinutesOnlyTemplate), "00 min, 3 h");
+    });
+});
+
+describe("millisecondsUntilNextWholeMinute", () => {
+    it("counts down to the next minute boundary", () => {
+        assert.equal(millisecondsUntilNextWholeMinute(kMillisecondsPerHour + 45 * kMillisecondsPerSecond), 15 * kMillisecondsPerSecond);
+    });
+
+    it("waits a full minute when exactly on a boundary", () => {
+        assert.equal(millisecondsUntilNextWholeMinute(2 * kMillisecondsPerMinute), kMillisecondsPerMinute);
+    });
+
+    it("handles a session that starts slightly in the future", () => {
+        assert.equal(millisecondsUntilNextWholeMinute(-10 * kMillisecondsPerSecond), 10 * kMillisecondsPerSecond);
     });
 });

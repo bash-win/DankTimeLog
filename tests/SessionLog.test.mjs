@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { closeRunningSessionAfterMachineOffGap, closeRunningSessionAt, findRunningSession, startPresetSession } from "../SessionLog.mjs";
+import { closeRunningSessionAfterMachineOffGap, closeRunningSessionAt, findRunningSession, removePresetSessions, startPresetSession } from "../SessionLog.mjs";
 import { kMachineOffGapThresholdMilliseconds } from "../SessionMath.mjs";
 
 const kMillisecondsPerHour = 60 * 60 * 1000;
@@ -83,5 +83,17 @@ describe("closeRunningSessionAfterMachineOffGap", () => {
         const lastHeartbeatEpochMilliseconds = kStartEpochMilliseconds + kMillisecondsPerHour;
         const sessions = [openSession("work", kStartEpochMilliseconds)];
         assert.equal(closeRunningSessionAfterMachineOffGap(sessions, lastHeartbeatEpochMilliseconds, lastHeartbeatEpochMilliseconds + kMachineOffGapThresholdMilliseconds), sessions);
+    });
+});
+
+describe("removePresetSessions", () => {
+    const kSessions = [closedSession("study", kStartEpochMilliseconds, kStartEpochMilliseconds + kMillisecondsPerHour), closedSession("gaming", kStartEpochMilliseconds + kMillisecondsPerHour, kStartEpochMilliseconds + 2 * kMillisecondsPerHour), openSession("work", kStartEpochMilliseconds + 2 * kMillisecondsPerHour)];
+
+    it("removes every session of the preset and keeps the rest in order", () => {
+        assert.deepEqual(removePresetSessions(kSessions, "gaming"), [kSessions[0], kSessions[2]]);
+    });
+
+    it("returns the same array when the preset has no sessions", () => {
+        assert.equal(removePresetSessions(kSessions, "missing"), kSessions);
     });
 });
