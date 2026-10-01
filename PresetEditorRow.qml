@@ -12,8 +12,7 @@ Column {
 
     signal presetsEdited(var updatedPresets)
 
-    readonly property int kColorSwatchSizePixels: 28
-    readonly property int kIconPickerWidthPixels: 150
+    readonly property real kIconPickerWidthFraction: 0.3
 
     readonly property color presetColor: PresetCatalog.resolvePresetColor(preset, Theme.primary)
     readonly property bool isTypedNameAvailable: PresetCatalog.isDisplayNameAvailable(presets, nameField.text, preset.presetId)
@@ -46,8 +45,8 @@ Column {
 
         DankColorSwatch {
             anchors.verticalCenter: parent.verticalCenter
-            width: root.kColorSwatchSizePixels
-            height: root.kColorSwatchSizePixels
+            width: Theme.iconSize
+            height: Theme.iconSize
             swatchColor: root.presetColor
 
             MouseArea {
@@ -59,7 +58,7 @@ Column {
 
         DankIconPicker {
             anchors.verticalCenter: parent.verticalCenter
-            width: root.kIconPickerWidthPixels
+            width: parent.width * root.kIconPickerWidthFraction
             currentIcon: root.preset.iconName
             onIconSelected: (iconName, iconType) => root.presetsEdited(PresetCatalog.setPresetIconName(root.presets, root.preset.presetId, iconName))
         }
