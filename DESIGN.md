@@ -158,16 +158,19 @@ plugin's handler, for `dms ipc call dankTimeLog <command>`:
 ## Storage
 
 - Presets and the chosen N go in plugin settings (`savePluginData`).
-- Sessions go in plugin state (`savePluginState`, key `sessions`), which DMS
-  writes atomically to `~/.local/state/DankMaterialShell/plugins/dankTimeLog_state.json`.
-  The DMS plugin guide names plugin state as the place for history, and keeping
-  everything under the plugin's own config and state paths is part of what the
-  registry review checks.
+- Sessions go in `~/.local/state/DankMaterialShell/plugins/dankTimeLog_sessions.json`,
+  in DMS's plugin state directory, written by the daemon's own `FileView` with
+  `atomicWrites: true`. Staying under the plugin's own state path is part of
+  what the registry review checks.
+  - Not `savePluginState`: in DMS 1.6.2, after a plugin reload (toggling it off
+    and on, or an update) the first save never reaches disk. The next save
+    writes everything, so the only loss is when the shell dies in between,
+    but a session started right after a reload could vanish that way.
+  - If the file exists but cannot be parsed, the daemon starts with no history
+    and does not save for that run, rather than overwrite the file.
 - The heartbeat goes in its own file in the same directory,
-  `dankTimeLog_heartbeat.json`, written through a `FileView` with
-  `atomicWrites: true`. `savePluginState` rewrites the whole state file, so
-  routing a 30 s heartbeat through it would rewrite the full session history
-  every 30 s.
+  `dankTimeLog_heartbeat.json`, written the same way. Keeping it separate means
+  a heartbeat every 30 s does not rewrite the whole session history.
 
 ```json
 { "formatVersion": 1, "sessions": [ ... ] }

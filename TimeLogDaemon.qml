@@ -36,6 +36,8 @@ PluginComponent {
     readonly property var runningSession: SessionLog.findRunningSession(sessions)
     readonly property var runningPreset: runningSession === null ? null : PresetCatalog.findPresetById(presets, runningSession.presetId)
     property real lastHeartbeatEpochMilliseconds: 0
+    // False when the sessions file exists but cannot be parsed, so a save cannot overwrite history that might be recoverable.
+    property bool canSaveSessions: true
 
     function startPreset(presetId) {
         if (!PresetCatalog.isPresetActive(presets, presetId))
@@ -54,8 +56,27 @@ PluginComponent {
         if (updatedSessions === sessions)
             return;
         sessions = updatedSessions;
-        pluginService.savePluginState(pluginId, "formatVersion", kSessionsFormatVersion);
-        pluginService.savePluginState(pluginId, "sessions", updatedSessions);
+        if (!canSaveSessions)
+            return;
+        const sessionsDocument = {
+            formatVersion: kSessionsFormatVersion,
+            sessions: updatedSessions
+        };
+        sessionsFile.setText(JSON.stringify(sessionsDocument));
+    }
+
+    function readSavedSessions() {
+        const sessionsText = sessionsFile.text();
+        if (sessionsText.trim() === "")
+            return [];
+        try {
+            const savedSessions = JSON.parse(sessionsText).sessions;
+            if (Array.isArray(savedSessions))
+                return savedSessions;
+        } catch (parseError) {}
+        console.warn("dankTimeLog: cannot read", sessionsFile.path, "- leaving it untouched and not saving sessions this run");
+        canSaveSessions = false;
+        return [];
     }
 
     function recordHeartbeat(nowEpochMilliseconds) {
@@ -90,8 +111,7 @@ PluginComponent {
     onPresetsChanged: stopRunningSessionIfPresetInactive()
 
     Component.onCompleted: {
-        const loadedSessions = pluginService.loadPluginState(pluginId, "sessions", []);
-        sessions = Array.isArray(loadedSessions) ? loadedSessions : [];
+        sessions = readSavedSessions();
         if (runningSession === null)
             return;
         // No heartbeat file means the shell never got to write one; the session start is the last moment known to be tracked.
@@ -100,7 +120,18 @@ PluginComponent {
         stopRunningSessionIfPresetInactive();
     }
 
-    // Kept out of savePluginState, which rewrites the whole session history on every save.
+    // Not savePluginState: in DMS 1.6.2 the first save after a plugin reload never reaches disk.
+    FileView {
+        id: sessionsFile
+
+        path: Paths.strip(Paths.state) + "/plugins/" + root.pluginId + "_sessions.json"
+        blockLoading: true
+        atomicWrites: true
+        // A missing file is normal before the first session.
+        printErrors: false
+    }
+
+    // Separate from the sessions file so a heartbeat every 30 s does not rewrite the whole history.
     FileView {
         id: heartbeatFile
 
@@ -126,6 +157,8 @@ PluginComponent {
             const preset = PresetCatalog.findActivePresetByName(root.presets, presetName);
             if (preset === null)
                 return "no active preset named " + presetName;
+            if (root.runningSession?.presetId === preset.presetId)
+                return "already running " + preset.displayName;
             root.startPreset(preset.presetId);
             return "started " + preset.displayName;
         }
