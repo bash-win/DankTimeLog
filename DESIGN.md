@@ -10,10 +10,11 @@ Target: DMS 1.6.2, Quickshell 0.3.1.
 
 In v1:
 
-- Presets: add, edit, archive.
+- Presets: add, edit, archive, and delete archived ones in settings; quick add
+  by name from the popout, below the start buttons.
 - Start a preset, switch to another, stop.
 - Bar pill showing the running preset and its elapsed time.
-- Popout with start/switch/stop controls, today's totals, and the averages chart.
+- Popout with start/switch/stop controls and the averages chart.
 - IPC commands so keybindings can drive the timer.
 - The timer stops when the machine is off or suspended.
 
@@ -31,6 +32,12 @@ Not in v1:
 - Presets with history are archived rather than deleted, so past averages stay
   correct. Archived presets are hidden from the start buttons but still appear
   in the chart for ranges that contain their sessions.
+- Deleting is only offered for archived presets, so it never touches the
+  running timer. It removes the preset's sessions too: kept without a preset,
+  they would show in the chart under the bare id. Settings asks first and shows
+  the total time that will be removed.
+- Until the user saves presets in settings, the daemon uses two defaults,
+  Work and Study. An empty `colorHex` means the theme accent.
 
 **Session**: `{ presetId, startEpochMilliseconds, endEpochMilliseconds }`
 
@@ -82,8 +89,14 @@ without a shell.
 
 ## Averages
 
-Both views show average time per day for each preset, as horizontal bars, with
-the combined total underneath. A toggle in the popout switches between them.
+One chart shows average time per day for each preset, as horizontal bars scaled
+to the longest preset, with the combined total underneath. It shows up to
+eight rows and scrolls beyond that. A toggle in the
+popout switches between three ranges, and the chosen range is saved in plugin
+settings.
+
+**Today**: the one-day "last N days" range. An average over one day is that
+day's total, so today's totals need no separate list.
 
 **This week**: Monday 00:00 local time through now.
 
@@ -111,18 +124,37 @@ DMS composite plugin, id `dankTimeLog`.
 plugin.json
 TimeLogDaemon.qml     single owner of presets, sessions, and the running timer;
                       persistence, heartbeat, IPC handler
-TimeLogWidget.qml     bar pill and popout; reads daemon state, sends actions to it
+TimeLogWidget.qml     bar pills; saves the chosen chart range and N
+TimeLogPopout.qml     popout layout and its refresh timers
+RunningSessionCard.qml  running preset, elapsed time, Stop
+PresetStartButtons.qml  one button per active preset, and quick add
+PresetStartButton.qml   one preset's button, eliding long names
+AveragesChart.qml     range toggle, N picker, rows, total, range description
+AverageBarRow.qml     one preset's bar
 TimeLogSettings.qml   preset add/edit/archive
+PresetEditorRow.qml   one active preset's color, icon, name, and Archive
+ArchivedPresetRow.qml   one archived preset's Restore, and Delete with confirmation
+AveragesChartModel.mjs  chart range to averages, averages to chart rows
+SessionLog.mjs        start, switch, stop, gap-close, and removing a preset's
+                      sessions as functions from sessions to sessions
 SessionMath.mjs       day and week boundaries, per-preset totals, averages,
                       gap decision
+PresetCatalog.mjs     preset lookup by id and by name; add, rename, recolor,
+                      archive, delete as functions from presets to presets
 DurationFormat.mjs    "1h 05m" style formatting
 tests/                node --test suites for the .mjs files
 ```
 
 The daemon is the only owner because DMS creates a separate widget instance per
 bar per monitor; state held in widgets would diverge across screens. Widgets
-read state the daemon publishes through `PluginService` global variables and
-call into the daemon for every mutation.
+hold a non-owning reference to the daemon through
+`PluginService.pluginDaemonInstances[pluginId]`, bind to its `presets`,
+`sessions`, and `runningSession`, and call its `startPreset` and
+`stopRunningSession` for every mutation.
+
+The daemon itself holds no session logic beyond calling `SessionLog` and
+saving the result, so start, switch, stop, and the machine-off close are all
+covered by the Node tests.
 
 The `.mjs` files are ECMAScript modules with no QML or Qt APIs. QML imports
 them with `import "SessionMath.mjs" as SessionMath` and Node imports them
@@ -134,28 +166,32 @@ The tests pin `TZ` to `America/New_York` so the DST cases run against real
 
 ## IPC
 
-Target `timelog`, for `dms ipc call timelog <command>`:
+Target `dankTimeLog`, matching the plugin id so it cannot collide with another
+plugin's handler, for `dms ipc call dankTimeLog <command>`:
 
 | Command | Effect |
 |---|---|
 | `start <presetName>` | Start or switch to the preset (case-insensitive name match) |
 | `stop` | Stop the running session |
 | `toggle <presetName>` | Stop if that preset is running, otherwise start it |
-| `status` | Running preset name and elapsed seconds, or empty |
+| `status` | Running preset name and elapsed seconds, tab-separated, or empty |
 
 ## Storage
 
 - Presets and the chosen N go in plugin settings (`savePluginData`).
-- Sessions go in plugin state (`savePluginState`, key `sessions`), which DMS
-  writes atomically to `~/.local/state/DankMaterialShell/plugins/dankTimeLog_state.json`.
-  The DMS plugin guide names plugin state as the place for history, and keeping
-  everything under the plugin's own config and state paths is part of what the
-  registry review checks.
+- Sessions go in `~/.local/state/DankMaterialShell/plugins/dankTimeLog_sessions.json`,
+  in DMS's plugin state directory, written by the daemon's own `FileView` with
+  `atomicWrites: true`. Staying under the plugin's own state path is part of
+  what the registry review checks.
+  - Not `savePluginState`: in DMS 1.6.2, after a plugin reload (toggling it off
+    and on, or an update) the first save never reaches disk. The next save
+    writes everything, so the only loss is when the shell dies in between,
+    but a session started right after a reload could vanish that way.
+  - If the file exists but cannot be parsed, the daemon starts with no history
+    and does not save for that run, rather than overwrite the file.
 - The heartbeat goes in its own file in the same directory,
-  `dankTimeLog_heartbeat.json`, written through a `FileView` with
-  `atomicWrites: true`. `savePluginState` rewrites the whole state file, so
-  routing a 30 s heartbeat through it would rewrite the full session history
-  every 30 s.
+  `dankTimeLog_heartbeat.json`, written the same way. Keeping it separate means
+  a heartbeat every 30 s does not rewrite the whole session history.
 
 ```json
 { "formatVersion": 1, "sessions": [ ... ] }
@@ -172,7 +208,9 @@ to:
 
 - The bar pill shows `h:mm` and updates once a minute, aligned to the minute
   boundary of the session's elapsed time.
-- The popout shows seconds and ticks every second, only while it is open.
+- The popout's running time ticks every second, only while it is open and a
+  timer runs. The chart recomputes once a minute while open, and immediately
+  when sessions change.
 - The heartbeat runs every 30 s, only while a session is open.
 
 ## Conventions
@@ -185,5 +223,9 @@ to:
 
 ## Build and checks
 
-- `qmllint` and `qmlformat` clean on all QML.
+`./check.sh` runs all of these:
+
+- `qmlformat` clean on all QML, using the repo's `.qmlformat.ini` (4-space
+  indent, 250 columns, matching DMS).
+- `qmllint` clean on all QML and `.mjs` files.
 - `node --test 'tests/*.test.mjs'` passes.

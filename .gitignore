@@ -1,4 +1,5 @@
 node_modules/
+.lint-imports/
 
 # The registry review deletes these and rejects text addressed to AI tools.
 CLAUDE.md

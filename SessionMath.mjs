@@ -62,9 +62,9 @@ function computeAveragesFromLocalDayThroughNow(sessions, firstDayStartEpochMilli
     const durationMillisecondsByPresetId = sumDurationsByPresetWithinRange(sessions, firstDayStartEpochMilliseconds, nowEpochMilliseconds, nowEpochMilliseconds);
 
     const presetAverages = Object.keys(durationMillisecondsByPresetId).map(presetId => ({
-                presetId: presetId,
-                averageMillisecondsPerDay: durationMillisecondsByPresetId[presetId] / dayCount
-            }));
+        presetId: presetId,
+        averageMillisecondsPerDay: durationMillisecondsByPresetId[presetId] / dayCount
+    }));
     presetAverages.sort((left, right) => right.averageMillisecondsPerDay - left.averageMillisecondsPerDay || (left.presetId < right.presetId ? -1 : left.presetId > right.presetId ? 1 : 0));
 
     const totalAverageMillisecondsPerDay = presetAverages.reduce((runningTotal, presetAverage) => runningTotal + presetAverage.averageMillisecondsPerDay, 0);

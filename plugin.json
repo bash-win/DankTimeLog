@@ -1,0 +1,24 @@
+{
+    "id": "dankTimeLog",
+    "name": "Dank Time Log",
+    "description": "Track time against your own presets with per-day averages",
+    "version": "0.1.0",
+    "author": "bash-win",
+    "type": "composite",
+    "capabilities": [
+        "dankbar-widget",
+        "daemon",
+        "ipc"
+    ],
+    "icon": "timer",
+    "components": {
+        "daemon": "./TimeLogDaemon.qml",
+        "widget": "./TimeLogWidget.qml"
+    },
+    "settings": "./TimeLogSettings.qml",
+    "requires_dms": ">=1.6.2",
+    "permissions": [
+        "settings_read",
+        "settings_write"
+    ]
+}
